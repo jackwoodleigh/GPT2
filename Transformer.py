@@ -65,14 +65,14 @@ class Transformer(nn.Module):
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.n_embd)
-        self.attn = CasualSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd)
+        self.layer_norm_1 = nn.LayerNorm(config.n_embd)
+        self.attention = CasualSelfAttention(config)
+        self.layer_norm_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.attn(self.ln_2(x))
+        x = x + self.attention(self.layer_norm_1(x))
+        x = x + self.attention(self.layer_norm_2(x))
         return x
 
 
@@ -81,10 +81,8 @@ class MLP(nn.Module):
         super().__init__()
         self.c_fc = nn.Linear(config.n_embd, config.n_embd * 4)
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
-
         # flag for residual scale
         self.c_proj.NANO_SCALE = 1
-
 
     def forward(self, x):
         return self.c_proj(F.gelu(self.c_fc(x)))
