@@ -14,7 +14,7 @@ if __name__ == '__main__':
     training_loader = DataLoader(t_dataset, batch_size=batch_size, shuffle=True, num_workers=10, pin_memory=True)
 
     model = GPT2()
-    model.training(training_loader, 10, total_batch_size=8)
+    #model.training(training_loader, 100, total_batch_size=batch_size*1)
 
     model.sample()
 
