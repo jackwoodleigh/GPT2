@@ -13,17 +13,20 @@ class GPTConfig:
     n_layer = 12
     n_heads = 12
     n_embd = 768
-    lr = 0.0008 #6e-4 1e-5
+    lr = 0.0006 #1e-5
 
 
 class GPT2:
-    def __init__(self, config=GPTConfig(), device="cuda"):
+    def __init__(self,  enc, special_tokens, config=GPTConfig(), device="cuda"):
+        self.enc = enc
+        self.special_token_set = set(special_tokens.keys())
         self.seq_len = config.block_size
         self.device = device
         self.transformer = Transformer(config)
         self.transformer.to(device)
         self.optimizer = torch.optim.AdamW(self.transformer.parameters(), lr=config.lr, betas=(0.9, 0.95), fused=True)
         self.text_to_token = tiktoken.get_encoding("gpt2")
+        self.start_token = list(special_tokens.keys())[0]
 
     def training(self, training_loader, epoch, save_path=None, total_batch_size=524288):
         self.transformer.train()
@@ -59,15 +62,14 @@ class GPT2:
                 # such that batch size = 0.5M tokens
                 if total_batch_size is not None and current_step == total_micro_steps:
                     # clip grad to 1.0 like gpt2
+                    torch.cuda.synchronize()
                     norm = torch.nn.utils.clip_grad_norm_(self.transformer.parameters(), 1.0)
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+
                     print(f"Epoch: {e}, Loss: {loss_acc / B}, Time: {(time.time() - t1) * 1000:.2f}ms")
                     loss_acc = 0
                     current_step = 0
-
-                    if save_path is not None:
-                        self.save_model(save_path)
 
                     t1 = time.time()
 
@@ -75,16 +77,16 @@ class GPT2:
             '''scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()'''
+            if save_path is not None:
+                self.save_model(save_path)
 
-            torch.cuda.synchronize()
-
-    def sample(self, seq_len=32, output_size=4, input_text=None):
+    def sample(self, seq_len=1024, output_size=1, input_text=None):
         self.transformer.eval()
-        text = " "
+        text = self.start_token
         if input_text is not None:
-            text = input_text
+            text = text + input_text
 
-        tokens = self.text_to_token.encode(text)
+        tokens = self.enc.encode(text, allowed_special=self.special_token_set)
         tokens = torch.tensor(tokens, dtype=torch.long)
         tokens = tokens.unsqueeze(0).repeat(output_size, 1)   # making copies
         x = tokens.to(self.device)
@@ -103,8 +105,13 @@ class GPT2:
 
         for i in range(output_size):
             tokens = x[i, :seq_len].tolist()
-            decode = self.text_to_token.decode(tokens)
-            print(">", decode)
+            decode = self.enc.decode(tokens)
+
+            # printing out effect
+            for token in decode:
+                print(token, end="")
+                time.sleep(0.01)
+
 
     def save_model(self, path):
         torch.save(self.transformer.state_dict(), path)
