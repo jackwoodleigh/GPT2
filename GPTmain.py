@@ -33,4 +33,4 @@ if __name__ == '__main__':
     model.load_model(path="tiny_shakespeare_save.pt")
     #model.training(training_loader, 100, total_batch_size=batch_size*8, save_path="save.pt")
 
-    model.sample()
+    model.sample(output_size=10)

@@ -104,13 +104,15 @@ class GPT2:
                 x = torch.cat((x, xcol), dim=-1)
 
         for i in range(output_size):
-            tokens = x[i, :seq_len].tolist()
-            decode = self.enc.decode(tokens)
+            tokens = x[i, :seq_len].tolist()[1:]
+            decoded = self.enc.decode(tokens)
+            with open(f"samples/sample_{i}.txt", 'w') as file:
+                file.write(''.join(decoded))
 
-            # printing out effect
+            '''# printing out effect
             for token in decode:
                 print(token, end="")
-                time.sleep(0.01)
+                time.sleep(0.01)'''
 
 
     def save_model(self, path):
